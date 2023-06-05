@@ -1,0 +1,20 @@
+﻿@page "/ledger"
+@inject SessionManager Session
+
+<PageTitle>Ledger</PageTitle>
+
+<h1>Ledger</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+@code {
+    private int currentCount = 0;
+
+    private async Task IncrementCount()
+    {
+        await Session.FetchLoginInformation();
+        currentCount++;
+    }
+}
