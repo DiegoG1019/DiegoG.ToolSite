@@ -8,6 +8,7 @@ using DiegoG.ToolSite.Shared.Models.Responses.Base;
 namespace DiegoG.ToolSite.Shared.Models;
 public class UserSettings
 {
+    public static UserSettings Default { get; } = new();
 }
 
 public class UserSettingsResponse : APIResponse

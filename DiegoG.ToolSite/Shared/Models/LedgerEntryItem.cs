@@ -9,10 +9,10 @@ namespace DiegoG.ToolSite.Shared.Models;
 
 public class LedgerEntryItem
 {
-    public required Money Money { get; set; }
+    public required MoneyAmount? Money { get; set; }
     public required string? Message { get; set; }
     public required string? Category { get; set; }
     public required string? Recipient { get; set; }
-    public required DateTimeOffset Date { get; set; }
-    public required List<string> Tags { get; set; } 
+    public required DateTimeOffset? Date { get; set; }
+    public required List<string>? Tags { get; set; } 
 }

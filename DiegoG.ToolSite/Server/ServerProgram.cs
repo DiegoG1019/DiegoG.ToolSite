@@ -15,6 +15,10 @@ using DiegoG.ToolSite.Server.Database;
 using DiegoG.ToolSite.Server.Database.Models.Base;
 using DiegoG.ToolSite.Shared.Services;
 using DiegoG.ToolSite.Shared.JsonConverters;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.OpenApi.Models;
+using System.Reflection;
+using System.Xml.XPath;
 
 namespace DiegoG.ToolSite.Server;
 
@@ -93,17 +97,79 @@ public static class ServerProgram
         log.Verbose("Assigning Settings to Program.Settings");
         Settings = settings;
 
+        log.Debug("Configuring default Json Options");
+        log.Verbose("Configuring HTTP Json Options");
         services.ConfigureHttpJsonOptions(x => x.SerializerOptions.Converters.Add(SessionIdJsonConverter.Instance));
 
+        log.Verbose("Configuring global JsonOptions");
         JsonOptions = new JsonSerializerOptions()
         {
             WriteIndented = true
         };
         JsonOptions.Converters.Add(SessionIdJsonConverter.Instance);
 
+        log.Debug("Configuring Swagger services");
+        log.Verbose("Adding Endpoints API Explorer");
         services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen();
 
+        log.Verbose("Adding Swagger Gen");
+        services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+
+            {
+                Version = "v1",
+                Title = "DiegoG.ToolSite API",
+                Description = "Performs tasks related to sessions and applications of Tool Site",
+                //TermsOfService = new Uri(""),
+                Contact = new Microsoft.OpenApi.Models.OpenApiContact
+                {
+                    Name = "Contact us",
+                    //Url = new Uri("mailto:"),
+                    //Email = ""
+                },
+                License = new Microsoft.OpenApi.Models.OpenApiLicense
+                {
+                    Name = "License",
+                    Url = new Uri("https://raw.githubusercontent.com/DiegoG1019/DiegoG.ToolSite/main/LICENSE.txt")
+                }
+            });
+
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                In = ParameterLocation.Header,
+                Description = "Please enter a valid session id",
+                Name = "Authorization",
+                Type = SecuritySchemeType.Http,
+                BearerFormat = "Base64",
+                Scheme = "Bearer"
+            });
+            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type=ReferenceType.SecurityScheme,
+                            Id="Bearer"
+                        }
+                    },
+                    Array.Empty<string>()
+                }
+            });
+
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            options.IncludeXmlComments(xmlPath);
+
+            var xmlDox = new XPathDocument(xmlPath); // Re-use XPathDocument
+            options.IncludeXmlComments(() => xmlDox); // IncludeXmlComments with current XPathDocument
+
+            options.EnableAnnotations();
+        });
+
+        log.Debug("Configuring Rate Limiting");
         services.AddRateLimiter(o =>
         {
             o.OnRejected = async (c, ct) =>
@@ -155,6 +221,12 @@ public static class ServerProgram
             );
         });
 
+        log.Debug("Configuring Kestrel");
+        builder.WebHost.UseKestrel(k =>
+        {
+
+        });
+
         log.Debug("Registering DiegoG.ToolSite Services");
         services.RegisterToolSiteServices(log);
 
@@ -179,11 +251,12 @@ public static class ServerProgram
         log.Debug("Registering REST InvalidModelState Response Filter");
         services.UseRESTInvalidModelStateResponse<ResponseCode>(ac => new ErrorResponse(ac.ModelState.Select(x => $"{x.Key}: {x.Value}")) { TraceId = ac.HttpContext.TraceIdentifier }.ToResult(HttpStatusCode.BadRequest));
 
+        log.Debug("Registering database context {context}", nameof(ToolSiteContext));
         var dbk = builder.Configuration.GetValue<DatabaseKind>("DatabaseKind");
         services.AddDbContext<ToolSiteContext>(dbk switch
         {
-            DatabaseKind.SQLite => o => o.UseSqlite(conf.GetFormattedConnectionString("ToolSiteContext")),
-            DatabaseKind.SQLServer => o => o.UseSqlServer(conf.GetFormattedConnectionString("ToolSiteContext")),
+            DatabaseKind.SQLite => o => o.UseSqlite(conf.GetFormattedConnectionString("ToolSite")),
+            DatabaseKind.SQLServer => o => o.UseSqlServer(conf.GetFormattedConnectionString("ToolSite")),
             _ => throw new InvalidDataException($"Unknown database kind {dbk}")
         });
         log.Information("Registered EntityFramework for Context {context} powered by {dbk}", nameof(ToolSiteContext), dbk);
@@ -270,15 +343,19 @@ public static class ServerProgram
         log.Debug("Configuring routing");
         App.UseRouting();
 
-        log.Debug("Registering Swagger");
-        App.UseSwagger();
-        App.UseSwaggerUI();
-
         log.Debug("Mapping controllers");
         App.MapControllers();
 
         log.Debug("Configuring the use of Blazor Framework files");
         App.UseBlazorFrameworkFiles();
+
+        log.Debug("Registering Swagger");
+        App.UseSwagger(c => c.RouteTemplate = "api/swagger/{documentname}.json");
+        App.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/api/swagger/v1.json", "ToolSite API V1");
+            c.RoutePrefix = "api/swagger";
+        });
 
         log.Debug("Configuring HTTPS redirection");
         App.UseHttpsRedirection();

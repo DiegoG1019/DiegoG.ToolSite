@@ -23,27 +23,29 @@ public class LedgerManager
             .Where(x => x.UserId == userId)
             .Join(ids, x => x.Id, y => y, (x, y) => x);
 
-    public void AddItem(LedgerEntryItem item, Id<User> userId)
+    public LedgerEntry AddItem(LedgerEntryItem item, Id<User> userId)
     {
         var entry = new LedgerEntry()
         {
             Category = item.Category,
-            Money = item.Money,
-            Date = item.Date,
+            Money = item.Money?.ToNodaMoney() ?? throw new ArgumentException("Money property must not be null", nameof(item)),
+            Date = item.Date ?? throw new ArgumentException("Date property must not be null", nameof(item)),
             Id = Id<LedgerEntry>.New(),
             UserId = userId,
             Message = item.Message,
             Recipient = item.Recipient
         };
 
-        foreach (var tag in item.Tags)
-            entry.Tags.Add(new Tag<LedgerEntry>()
-            {
-                OwnerId = entry.Id,
-                Label = tag
-            });
+        if (item.Tags is not null)
+            foreach (var tag in item.Tags)
+                entry.Tags.Add(new Tag<LedgerEntry>()
+                {
+                    OwnerId = entry.Id,
+                    Label = tag
+                });
 
         Db.LedgerEntries.Add(entry);
+        return entry;
     }
 
     public void SaveChanges()

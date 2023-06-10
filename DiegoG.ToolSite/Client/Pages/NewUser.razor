@@ -1,0 +1,163 @@
+﻿@page "/NewUser"
+@inherits ToolSiteComponent
+@using System.Diagnostics;
+@inject SessionManager Session
+
+<h1>Create a New User</h1>
+<div>
+    <div class="container">
+        <div class="row">
+            <div class="col-sm">
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text">Username</span>
+                    </div>
+                    <input class="form-control" type="text" name="Username" @bind="Username" placeholder="Enter your username" />
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm">
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text">Email</span>
+                    </div>
+                    <input class="form-control" type="text" name="Email" @bind="Email" placeholder="Enter your email" />
+                    <input class="form-control" type="text" name="ConfirmEmail" @bind="EmailVerification" placeholder="Confirm your email" />
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-sm">
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text">Password</span>
+                    </div>
+                    <input class="form-control" type="password" name="Password" @bind="Password" placeholder="Enter your password" />
+                    <input class="form-control" type="password" name="ConfirmPassword" @bind="PasswordVerification" placeholder="Confirm your password" />
+                </div>
+            </div>
+        </div>
+    </div>
+    <div>
+        <div class="container login-button-pair">
+            <div class="row">
+                <div class="col-sm">
+                    <label>&nbsp;</label>
+                    <input value="Submit" class="submit btn btn-secondary" @onclick="SubmitLogin" />
+                </div>
+                <div class="col-sm">
+                    <a class="btn btn-primary" href="/LogIn">Log in as an User</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<LoadingIndicator class="@(LoadingIndicatorClasses.Class)" />
+
+<div class="container error-box">
+    @if (Errors.HasErrors)
+    {
+        @foreach (var error in Errors.AsEnumerable())
+        {
+            <div class="row error-box-row">
+                <div class="col-4 error-box-msg">
+                    - <span>@error</span>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private ErrorList Errors;
+
+    private ClassSwitch ErrorBoxClasses = new("notif-jump");
+    private ClassSwitch LoadingIndicatorClasses = new("invisible");
+
+    public string X { get; } = "active";
+
+    public string? Password { get; set; }
+    public string? PasswordVerification { get; set; }
+    public string? Username { get; set; }
+    public string? Email { get; set; }
+    public string? EmailVerification { get; set; }
+
+    public async Task SubmitLogin()
+    {
+        try
+        {
+            Log.Information("Submitting New User Information");
+            Log.Verbose("Disabled ErrorBox active class");
+            ErrorBoxClasses.Disable(0);
+
+            Log.Verbose("Clearing Errors");
+            Errors.Errors?.Clear();
+
+            Log.Debug("Verifying password property");
+            bool checkpass = true;
+            if (string.IsNullOrWhiteSpace(Password))
+            {
+                Errors.AddError("The Password field is not set or contains only whitespace");
+                checkpass = false;
+            }
+            if (Password?.Length <= 6)
+            {
+                Errors.AddError("Password Length must be 6 characters or more");
+                checkpass = false;
+            }
+
+            if (checkpass && Password != PasswordVerification)
+                Errors.AddError("The password and the password verification do not match");
+
+            Log.Debug("Verifying email property");
+            if (string.IsNullOrWhiteSpace(Email))
+                Errors.AddError("The Email field is not set or contains only whitespace");
+            else if (RegexHelpers.VerifyEmailRegex().IsMatch(Email) is false)
+                Errors.AddError("The Email field is not a valid email");
+            else if (Email != EmailVerification)
+                Errors.AddError("The Email and the email verification do not match");
+
+            Log.Debug("Verifying username property");
+            if (string.IsNullOrWhiteSpace(Username))
+                Errors.AddError("The Username field is not set or contains only whitespace");
+            else
+            {
+                if (RegexHelpers.VerifyAlphaNumericRegex().IsMatch(Username) is false)
+                    Errors.AddError("An username may only contain alphanumeric characters and a '_' character. That is, A-Z lowercase or uppercase, 0-9 and '_'");
+
+                if (Username.Length > 30)
+                    Errors.AddError("An Username may not be longer than 30 characters");
+            }
+
+            if (Errors.HasErrors)
+            {
+                Log.Debug("Activating Error Box");
+                ErrorBoxClasses.Enable(0);
+                return;
+            }
+
+            Log.Verbose("Enabling Loading Indicator display");
+            LoadingIndicatorClasses.Disable(0);
+
+            Log.Information("Submitting NewUser information to server");
+            var result = await Session.CreateNewUserAndLogin(new NewUserRequest(Username!, Email!, HashHelpers.GetSHA256(Password)));
+
+            Log.Verbose("Enabling Loading Indicator display");
+            LoadingIndicatorClasses.Enable(0);
+
+            if (result.Success)
+                return;
+
+            if (result.Errors is not null)
+                foreach (var error in result.Errors)
+                    Errors.AddError(error);    
+        }
+        catch(Exception e)
+        {
+            Log.Error(e, "An error ocurred while attempting to submit login information");
+            throw;
+        }
+    }
+}

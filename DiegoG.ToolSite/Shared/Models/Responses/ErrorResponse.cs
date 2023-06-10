@@ -16,5 +16,5 @@ public class ErrorResponse : APIResponse
 
     public IEnumerable<string> Errors { get; }
 
-    public string? TraceId { get; init; }
+    public required string? TraceId { get; init; }
 }

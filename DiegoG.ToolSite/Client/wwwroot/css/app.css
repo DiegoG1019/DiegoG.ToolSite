@@ -99,3 +99,41 @@ a, .btn-link {
     .loading-progress-text:after {
         content: var(--blazor-load-percentage-text, "Loading");
     }
+
+
+footer {
+    background-color: #001619;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+
+    footer div {
+        margin: 8px;
+    }
+
+.notif-jump {
+    animation: notif-jump-anim 2s ease forwards;
+}
+
+@keyframes notif-jump-anim {
+    25% {
+        transform: translateX(10%);
+    }
+    75% {
+        transform: translateX(-10%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.error-box {
+    overflow: hidden;
+}
+
+.error-box-row {
+    background: #bd14149c;
+    color: #bd1414ff;
+    margin-top: 8px;
+}

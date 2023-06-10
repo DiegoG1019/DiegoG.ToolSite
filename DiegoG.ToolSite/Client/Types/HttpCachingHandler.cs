@@ -8,6 +8,39 @@ namespace DiegoG.ToolSite.Client.Types;
 
 public class HttpCachingHandler : HttpClientHandler
 {
+    private readonly struct CacheKey : IEquatable<CacheKey>
+    {
+        public string? AuthParam { get; }
+        public string? AuthScheme { get; }
+        public string Uri { get; }
+
+        public CacheKey(AuthenticationHeaderValue? auth, string uri)
+            : this(auth?.Parameter, auth?.Scheme, uri)
+        { }
+
+        public CacheKey(string? authParam, string? authScheme, string uri)
+        {
+            AuthParam = authParam;
+            AuthScheme = authScheme;
+            Uri = uri ?? throw new ArgumentNullException(nameof(uri));
+        }
+
+        public bool Equals(CacheKey other)
+            => string.Equals(AuthParam, other.AuthParam, StringComparison.CurrentCultureIgnoreCase)
+                && string.Equals(AuthScheme, other.AuthScheme, StringComparison.CurrentCultureIgnoreCase)
+                && string.Equals(Uri, other.Uri, StringComparison.CurrentCultureIgnoreCase);
+
+        public override bool Equals(object? obj) 
+            => obj is CacheKey key && Equals(key);
+
+        public override int GetHashCode()
+            => HashCode.Combine(
+                string.GetHashCode(AuthParam ?? "", StringComparison.CurrentCultureIgnoreCase),
+                string.GetHashCode(AuthScheme ?? "", StringComparison.CurrentCultureIgnoreCase),
+                string.GetHashCode(Uri, StringComparison.CurrentCultureIgnoreCase)
+            );
+    }
+
     private readonly record struct CacheItem(
         DateTime Expiration,
         byte[]? Data,
@@ -18,8 +51,7 @@ public class HttpCachingHandler : HttpClientHandler
         string? ReasonPhrase
     );
 
-    private readonly static ConcurrentDictionary<string, CacheItem> PublicCache = new(InvariantCaseInsensitiveStringComparer.Instance);
-    private readonly ConcurrentDictionary<string, CacheItem> Cache = new(InvariantCaseInsensitiveStringComparer.Instance);
+    private readonly ConcurrentDictionary<CacheKey, CacheItem> Cache = new();
 
     [UnsupportedOSPlatform("browser")]
     protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -44,6 +76,9 @@ public class HttpCachingHandler : HttpClientHandler
 
     private async ValueTask<bool> TryAddToCache(HttpResponseMessage response, HttpRequestMessage request)
     {
+        if (request.Method != HttpMethod.Get)
+            return false;
+
         if (string.IsNullOrWhiteSpace(request.Headers.Authorization?.Parameter) is false || string.IsNullOrWhiteSpace(request.RequestUri?.AbsolutePath))
             return false;
 
@@ -65,22 +100,19 @@ public class HttpCachingHandler : HttpClientHandler
             response.ReasonPhrase
         );
 
-        if (cc.Private)
-            Cache.TryAdd(request.RequestUri.AbsolutePath, cached);
-        else
-            PublicCache.TryAdd(request.RequestUri.AbsolutePath, cached);
+        Cache.TryAdd(new(request.Headers.Authorization, request.RequestUri.AbsolutePath), cached);
 
         return true;
     }
 
     private HttpResponseMessage? CheckCache(HttpRequestMessage request)
     {
+        if (request.Method != HttpMethod.Get)
+            return null;
         if (string.IsNullOrWhiteSpace(request.Headers.Authorization?.Parameter) is false)
             return null;
 
-        if (request.RequestUri != null 
-            && (Cache.TryGetValue(request.RequestUri.AbsolutePath, out var cached)
-                || PublicCache.TryGetValue(request.RequestUri.AbsolutePath, out cached)))
+        if (request.RequestUri != null && (Cache.TryGetValue(new(request.Headers.Authorization, request.RequestUri.AbsolutePath), out var cached)))
         {
             if (cached.Expiration > DateTime.Now)
             {
@@ -102,7 +134,7 @@ public class HttpCachingHandler : HttpClientHandler
                 return msg;
             }
             else
-                Cache.TryRemove(request.RequestUri.AbsolutePath, out _);
+                Cache.TryRemove(new(request.Headers.Authorization, request.RequestUri.AbsolutePath), out _);
         }
 
         return null;

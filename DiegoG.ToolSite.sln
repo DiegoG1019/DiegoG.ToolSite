@@ -3,11 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33530.505
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiegoG.ToolSite.Server", "DiegoG.ToolSite\Server\DiegoG.ToolSite.Server.csproj", "{2D54AE1F-66EA-4466-8400-F834D674DCB9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DiegoG.ToolSite.Server", "DiegoG.ToolSite\Server\DiegoG.ToolSite.Server.csproj", "{2D54AE1F-66EA-4466-8400-F834D674DCB9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiegoG.ToolSite.Client", "DiegoG.ToolSite\Client\DiegoG.ToolSite.Client.csproj", "{F3D3CD21-CB1D-4722-8D70-1F7235723E6E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DiegoG.ToolSite.Client", "DiegoG.ToolSite\Client\DiegoG.ToolSite.Client.csproj", "{F3D3CD21-CB1D-4722-8D70-1F7235723E6E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiegoG.ToolSite.Shared", "DiegoG.ToolSite\Shared\DiegoG.ToolSite.Shared.csproj", "{6896D68D-E0DE-4FEB-8CFC-60C122D70310}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DiegoG.ToolSite.Shared", "DiegoG.ToolSite\Shared\DiegoG.ToolSite.Shared.csproj", "{6896D68D-E0DE-4FEB-8CFC-60C122D70310}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToolSite.Tests", "ToolSite.Tests\ToolSite.Tests.csproj", "{001ABA3E-4CC6-4983-99A6-C1F6ECA8425F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{6896D68D-E0DE-4FEB-8CFC-60C122D70310}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6896D68D-E0DE-4FEB-8CFC-60C122D70310}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6896D68D-E0DE-4FEB-8CFC-60C122D70310}.Release|Any CPU.Build.0 = Release|Any CPU
+		{001ABA3E-4CC6-4983-99A6-C1F6ECA8425F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{001ABA3E-4CC6-4983-99A6-C1F6ECA8425F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{001ABA3E-4CC6-4983-99A6-C1F6ECA8425F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{001ABA3E-4CC6-4983-99A6-C1F6ECA8425F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

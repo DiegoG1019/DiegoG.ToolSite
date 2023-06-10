@@ -1,4 +1,5 @@
-﻿@page "/ledger"
+﻿@page "/app/ledger"
+@inherits ToolSiteComponent
 @inject SessionManager Session
 
 <PageTitle>Ledger</PageTitle>
@@ -14,7 +15,7 @@
 
     private async Task IncrementCount()
     {
-        await Session.FetchLoginInformation();
+        await Session.RefreshLoginInformation();
         currentCount++;
     }
 }

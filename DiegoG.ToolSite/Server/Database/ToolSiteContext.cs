@@ -1,33 +1,46 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using DiegoG.ToolSite.Server.Database.Models.Base;
-using UserSettings = DiegoG.ToolSite.Server.Database.Models.Base.UserSettings;
+using UserSettingsDbModel = DiegoG.ToolSite.Server.Database.Models.Base.UserSettingsDbModel;
 
 namespace DiegoG.ToolSite.Server.Database;
 
 public class ToolSiteContext : DbContext
 {
-    private static bool isInit = false;
-    private static readonly object sync = new();
-
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<MailConfirmationRequest> MailConfirmationRequests => Set<MailConfirmationRequest>();
     public DbSet<ExecutionLogEntry> ExecutionLog => Set<ExecutionLogEntry>();
     public DbSet<ServerInfo> Servers => Set<ServerInfo>();
+    public DbSet<PendingContactMessage> ContactMessages => Set<PendingContactMessage>();
 
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
 
     public ToolSiteContext(DbContextOptions<ToolSiteContext> options) : base(options)
     {
-        if (isInit is false)
-            lock (sync)
-                if (isInit is false)
-                {
-                    Helper.CreateAppDataDirectory();
-                    Database.EnsureCreated();
-                    isInit = true;
-                }
+        if (Database.IsSqlite())
+        {
+            Database.EnsureCreated();
+        }
+        else if (Database.IsSqlServer())
+        {
+#if DEBUG
+            try
+            {
+                Database.Migrate();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "An error ocurred while attempting to migrate the database -- due to being in Debug mode; the database will be deleted and migration reattempted");
+                Database.EnsureDeleted();
+                Database.Migrate();
+            }
+#else
+            Database.Migrate();
+#endif
+        }
+        else
+            throw new InvalidOperationException("The backing database is neither SqlServer or Sqlite, this context is not configured to handle any other databases");
 
         ChangeTracker.StateChanged += ChangeTracker_StateChanged;
     }
@@ -61,12 +74,28 @@ public class ToolSiteContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
-        ConfigureUser(mb.Entity<User>());
         ConfigureRoles(mb.Entity<Role>());
         ConfigureLog(mb.Entity<ExecutionLogEntry>());
         ConfigureMailConfirmationRequest(mb.Entity<MailConfirmationRequest>());
         ConfigureServers(mb.Entity<ServerInfo>());
         ConfigureLedgerEntries(mb.Entity<LedgerEntry>());
+        ConfigureUser(mb.Entity<User>());
+        ConfigurePendingContactMessage(mb.Entity<PendingContactMessage>());
+    }
+
+    private static void ConfigurePendingContactMessage(EntityTypeBuilder<PendingContactMessage> mb)
+    {
+        mb.Property(x => x.Id).HasConversion(Id<PendingContactMessage>.Converter);
+    }
+
+    private static void ConfigureUser(EntityTypeBuilder<User> mb)
+    {
+        mb.Property(x => x.Id).HasConversion(Id<User>.Converter);
+        mb.HasMany(x => x.Roles).WithMany(x => x.Users);
+        mb.HasOne(x => x.MailConfirmationRequest).WithOne(x => x.User).HasForeignKey<MailConfirmationRequest>(x => x.UserId);
+        mb.HasOne(x => x.UserSettings).WithOne(x => x.User).HasForeignKey<UserSettingsDbModel>(x => x.Id);
+        mb.HasIndex(x => x.Username).IsUnique();
+        mb.HasIndex(x => x.Email).IsUnique();
     }
 
     private static void ConfigureLedgerEntries(EntityTypeBuilder<LedgerEntry> mb)
@@ -101,14 +130,6 @@ public class ToolSiteContext : DbContext
     private static void ConfigureMailConfirmationRequest(EntityTypeBuilder<MailConfirmationRequest> mb)
     {
         mb.Property(x => x.Id).HasConversion(Id<MailConfirmationRequest>.Converter);
-    }
-
-    private static void ConfigureUser(EntityTypeBuilder<User> mb)
-    {
-        mb.Property(x => x.Id).HasConversion(Id<User>.Converter);
-        mb.HasMany(x => x.Roles).WithMany(x => x.Users);
-        mb.HasOne(x => x.MailConfirmationRequest).WithOne(x => x.User).HasForeignKey<MailConfirmationRequest>(x => x.UserId);
-        mb.HasOne(x => x.UserSettings).WithOne(x => x.User).HasForeignKey<UserSettings>(x => x.Id);
     }
 
     private static void ConfigureRoles(EntityTypeBuilder<Role> mb)

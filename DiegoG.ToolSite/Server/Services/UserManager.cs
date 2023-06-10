@@ -9,6 +9,7 @@ using DiegoG.ToolSite.Server.Database.Models.Base;
 using DiegoG.ToolSite.Server.Types;
 using DiegoG.ToolSite.Shared.Models;
 using DiegoG.ToolSite.Shared.Models.Requests;
+using DiegoG.ToolSite.Shared;
 
 namespace DiegoG.ToolSite.Server.Services;
 
@@ -46,27 +47,50 @@ public class UserManager
         return Db.Users.FirstOrDefaultAsync(x => x.Id == userId);
     }
 
-    public Task AddUser(User user)
+    public Task<bool> CheckForUsernameConflict(string username, Id<User>? userId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(username);
+
+        return userId is not Id<User> uid
+            ? Db.Users.AnyAsync(x => EF.Functions.Like(x.Username, username))
+            : Db.Users.AnyAsync(x => EF.Functions.Like(x.Username, username) && x.Id != uid);
+    }
+
+    public Task<bool> CheckForEmailConflict(string email, Id<User>? userId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(email);
+
+        return userId is not Id<User> uid
+            ? Db.Users.AnyAsync(x => x.Email != null && EF.Functions.Like(x.Email, email))
+            : Db.Users.AnyAsync(x => x.Email != null && EF.Functions.Like(x.Email, email) && x.Id != uid);
+    }
+
+    //public Task<bool> CheckForConflict(string username, string email, Id<User>? userId)
+    //{
+    //    ArgumentException.ThrowIfNullOrEmpty(username);
+    //    ArgumentException.ThrowIfNullOrEmpty(email);
+
+    //    return userId is not Id<User> uid
+    //        ? Db.Users.AnyAsync(x => EF.Functions.Like(x.Username, username) || (x.Email != null && EF.Functions.Like(x.Email, email)))
+    //        : Db.Users.AnyAsync(x => (EF.Functions.Like(x.Username, username) || (x.Email != null && EF.Functions.Like(x.Email, email))) && x.Id != uid);
+    //}
+
+    public async Task<bool> AddUser(User user)
     {
         Db.Users.Add(user);
-        return Db.SaveChangesAsync();
+        await Db.SaveChangesAsync();
+        return true;
     }
 
     public Task<User?> CheckLogin(LoginRequest request)
     {
-        var hash512 = Helper.GetHash512(request.Password);
+        var hash512 = HashHelpers.GetSHA512(request.PasswordSha256);
         return Db.Users.FirstOrDefaultAsync(
-            x => x.Email != null && (EF.Functions.Like(x.Email, request.Username) || EF.Functions.Like(x.Username, request.Username))
-                && x.PasswordHash != null
-                && x.PasswordHash == hash512
+            x => x.Email != null && (EF.Functions.Like(x.Email, request.UsernameOrEmail) || EF.Functions.Like(x.Username, request.UsernameOrEmail))
+                && x.PasswordSha512 != null
+                && x.PasswordSha512 == hash512
         );
     }
-
-    public Task<bool> CheckIfEmailExists(MailAddress address)
-        => Db.Users.AnyAsync(x => x.Email != null && EF.Functions.Like(x.Email, address.Address));
-
-    public Task<bool> CheckIfUsernameExists(string username)
-        => Db.Users.AnyAsync(x => EF.Functions.Like(x.Username, username));
 
     public async Task<(bool Found, Id<MailConfirmationRequest>? RequestId)> ChangeUserEmail(Id<User> userId, MailAddress newEmail)
     {

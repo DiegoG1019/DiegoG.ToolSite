@@ -37,7 +37,7 @@ public static class HttpHelpers
     {
         ArgumentNullException.ThrowIfNull(user);
         log?.Debug("Checking if user is already logged in");
-        if (user.PasswordHash is not null)
+        if (user.PasswordSha512 is not null)
         {
             log?.Information("User {user} ({userid}) is already logged in");
             return true;

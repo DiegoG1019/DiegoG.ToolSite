@@ -7,19 +7,26 @@ namespace DiegoG.ToolSite.Client;
 
 public static class ApiHelper
 {
+    private static IServiceProvider? services;
+    public static IServiceProvider Services 
+    { 
+        get => services ?? ClientProgram.Services; 
+        set => services = value ?? throw new ArgumentNullException(nameof(value)); 
+    }
+
     public static async Task<HttpApiResponse> ProcessAPIMessage(HttpResponseMessage msg, CancellationToken ct = default)
     {
-        var serializer = ClientProgram.Services.GetRequiredService<IRESTObjectSerializer<ResponseCode>>();
-        var typetable = ClientProgram.Services.GetRequiredService<RESTObjectTypeTable<ResponseCode>>();
+        var serializer = Services.GetRequiredService<IRESTObjectSerializer<ResponseCode>>();
+        var typetable = Services.GetRequiredService<RESTObjectTypeTable<ResponseCode>>();
 
         return new(msg.StatusCode, await serializer.DeserializeAsync<APIResponse>(await msg.Content.ReadAsStreamAsync(ct), typetable), msg.ReasonPhrase);
     }
 
-    public static async Task<HttpApiResponse<TAPIResponse>> ProcessAPIMessage<TAPIResponse>(HttpResponseMessage msg, CancellationToken ct = default) 
+    public static async Task<HttpApiResponse<TAPIResponse>> ProcessAPIMessage<TAPIResponse>(HttpResponseMessage msg, CancellationToken ct = default)
         where TAPIResponse : APIResponse
     {
-        var serializer = ClientProgram.Services.GetRequiredService<IRESTObjectSerializer<ResponseCode>>();
-        var typetable = ClientProgram.Services.GetRequiredService<RESTObjectTypeTable<ResponseCode>>();
+        var serializer = Services.GetRequiredService<IRESTObjectSerializer<ResponseCode>>();
+        var typetable = Services.GetRequiredService<RESTObjectTypeTable<ResponseCode>>();
 
         return new(msg.StatusCode, await serializer.DeserializeAsync<APIResponse>(await msg.Content.ReadAsStreamAsync(ct), typetable), msg.ReasonPhrase);
     }
@@ -30,13 +37,13 @@ public static class ApiHelper
     public static async Task<HttpApiResponse> DeleteFromAPIAsync(this HttpClient client, string? requestUri, CancellationToken ct = default)
         => await ProcessAPIMessage(await client.DeleteAsync(requestUri, ct), ct);
 
-    public static async Task<HttpApiResponse> PostInAPIAsync<TContent>(this HttpClient client, string? requestUri, TContent content, JsonSerializerOptions? jsonOptions = null, CancellationToken ct = default) 
+    public static async Task<HttpApiResponse> PostInAPIAsync<TContent>(this HttpClient client, string? requestUri, TContent content, JsonSerializerOptions? jsonOptions = null, CancellationToken ct = default)
         => await ProcessAPIMessage(await client.PostAsJsonAsync(requestUri, content, jsonOptions, ct), ct);
 
     public static async Task<HttpApiResponse> PatchInAPIAsync<TContent>(this HttpClient client, string? requestUri, TContent content, JsonSerializerOptions? jsonOptions = null, CancellationToken ct = default)
         => await ProcessAPIMessage(await client.PatchAsJsonAsync(requestUri, content, jsonOptions, ct), ct);
 
-    public static async Task<HttpApiResponse> PutInAPIAsync<TContent>(this HttpClient client, string? requestUri, TContent content, JsonSerializerOptions? jsonOptions = null, CancellationToken ct = default) 
+    public static async Task<HttpApiResponse> PutInAPIAsync<TContent>(this HttpClient client, string? requestUri, TContent content, JsonSerializerOptions? jsonOptions = null, CancellationToken ct = default)
         => await ProcessAPIMessage(await client.PutAsJsonAsync(requestUri, content, jsonOptions, ct), ct);
 
     public static async Task<HttpApiResponse<TAPIResponse>> GetFromAPIAsync<TAPIResponse>(this HttpClient client, string? requestUri, CancellationToken ct = default)

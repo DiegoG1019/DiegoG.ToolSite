@@ -1,11 +1,37 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using DiegoG.ToolSite.Shared;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Newtonsoft.Json.Linq;
 
 namespace DiegoG.ToolSite.Server.Types;
 
 public sealed class TimedCache<TKey, TValue> where TKey : notnull
 {
+    private static readonly LinkedList<WeakReference<TimedCache<TKey, TValue>>> CleanupList = new();
+
+    static TimedCache()
+    {
+        BackgroundTaskStore.Add(() =>
+        {
+            var current = CleanupList.First;
+            while (current is not null)
+            {
+                if (current.Value.TryGetTarget(out var cache))
+                {
+                    cache.Sweep();
+                    current = current.Next;
+                    continue;
+                }
+
+                var p = current;
+                current = current.Next;
+                CleanupList.Remove(p);
+            }
+            return Task.Delay(TimeSpan.FromSeconds(30));
+        }, true);
+    }
+
     private record Entry(TValue Value)
     {
         public DateTime Updated { get; set; } = DateTime.Now;
@@ -17,10 +43,19 @@ public sealed class TimedCache<TKey, TValue> where TKey : notnull
     public TimedCache(Func<TKey, TValue, TimeSpan> timeoutCheck)
     {
         TimeoutCheck = timeoutCheck ?? throw new ArgumentNullException(nameof(timeoutCheck));
+        lock (CleanupList)
+            CleanupList.AddLast(new WeakReference<TimedCache<TKey, TValue>>(this));
     }
     
     public void Clear()
         => _cache.Clear();
+
+    public void Sweep()
+    {
+        foreach (var (key, entry) in _cache)
+            if (DateTime.Now - entry.Updated > TimeoutCheck(key, entry.Value))
+                _cache.TryRemove(key, out _);
+    }
 
     public bool TryRemove(TKey key, [MaybeNull] out TValue value)
     {

@@ -17,7 +17,10 @@ public readonly record struct HttpApiResponse<TApiResponse>(HttpStatusCode HttpS
     }
 
     public bool TryGetAsExpected([NotNullWhen(true)] out TApiResponse? response)
-        => (response = ApiResponse as TApiResponse) is not null;
+    {
+        ThrowIfNotSuccess();
+        return (response = ApiResponse as TApiResponse) is not null;
+    }
 
     public bool IsSuccessStatusCode
         => (int)HttpStatusCode is >= 200 and <= 299;

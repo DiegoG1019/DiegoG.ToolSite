@@ -8,7 +8,7 @@ using DiegoG.ToolSite.Server.Database;
 
 namespace DiegoG.ToolSite.Server.Workers;
 
-[RegisterToolSiteWorker]
+//[RegisterToolSiteWorker]
 public class MailSender : ApiServiceWorker
 {
     private static readonly string MCRTemplate = File.ReadAllText("Resources/MailConfirmationRequestMessageTemplate.html");
@@ -30,7 +30,7 @@ public class MailSender : ApiServiceWorker
                 .Include(x => x.User)
                 .ToArrayAsync(stoppingToken))
             {
-                Log.Debug("Processing a mail confirmation request for user {user} ({userid}) under email {email}", mcr.User.DisplayName, mcr.UserId, mcr.Email);
+                Log.Debug("Processing a mail confirmation request for user {user} ({userid}) under email {email}", mcr.User.Username, mcr.UserId, mcr.Email);
                 var bb = new BodyBuilder
                 {
                     HtmlBody = MCRTemplate.Replace("{{mcrlink}}", $"{ServerProgram.Settings.FrontFacingBaseAddress}/ConfirmMail/{mcr.Id}")
@@ -47,7 +47,7 @@ public class MailSender : ApiServiceWorker
                 await mail.SendAsync(
                         new MimeMessage(
                             from: new InternetAddress[] { sender },
-                            to: new InternetAddress[] { new MailboxAddress(mcr.User.DisplayName, mcr.Email) },
+                            to: new InternetAddress[] { new MailboxAddress(mcr.User.Username, mcr.Email) },
                             subject: "Mail Confirmation",
                             body: bb.ToMessageBody()
                         ),

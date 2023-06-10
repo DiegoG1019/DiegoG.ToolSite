@@ -50,12 +50,12 @@ public class UserAuthorizationFilter : ToolSiteFilter, IAsyncAuthorizationFilter
 
         if (UserPermissions > 0)
         {
-            log.Debug("Attempting to authorize user {user} ({userid}) for user permissions: {permissions}", user.DisplayName, user.Id, UserPermissions);
+            log.Debug("Attempting to authorize user {user} ({userid}) for user permissions: {permissions}", user.Username, user.Id, UserPermissions);
 
             var perms = await Users.FetchRolePermissions(user.Id);
             if (perms.HasFlag(UserPermissions) is false)
             {
-                log.Debug("The user {user} ({userid}) did not have the required user permissions of {permissions} and was not authorized", user.DisplayName, user.Id, UserPermissions);
+                log.Debug("The user {user} ({userid}) did not have the required user permissions of {permissions} and was not authorized", user.Username, user.Id, UserPermissions);
                 context.Result = new ErrorResponse("The user does not have the required permissions to be authorized for this resource") 
                 {
                     TraceId = context.HttpContext.TraceIdentifier 
@@ -65,7 +65,7 @@ public class UserAuthorizationFilter : ToolSiteFilter, IAsyncAuthorizationFilter
                 return;
             }
 
-            log.Debug("The user {user} ({userid}) was succesfully authorized for permissions {permissions}", user.DisplayName, user.Id, UserPermissions);
+            log.Debug("The user {user} ({userid}) was succesfully authorized for permissions {permissions}", user.Username, user.Id, UserPermissions);
         }
     }
 }

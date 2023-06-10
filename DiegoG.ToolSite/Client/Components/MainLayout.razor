@@ -1,0 +1,25 @@
+﻿@inherits LayoutComponentBase
+@inject SessionManager Session
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            @if (Session.CurrentUser is UserSessionInformation cu)
+            {
+                <a class="user-data user-data-name" href="/UserInfo">@cu.Username</a>
+            }
+            else
+            {
+                <a class="btn btn-secondary user-data user-data-name" href="/Login">Login</a>
+            }
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>

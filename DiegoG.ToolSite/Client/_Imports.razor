@@ -6,5 +6,24 @@
 @using Microsoft.AspNetCore.Components.Web.Virtualization
 @using Microsoft.AspNetCore.Components.WebAssembly.Http
 @using Microsoft.JSInterop
+
+@using System;
+@using System.Collections.Generic;
+@using System.Linq;
+@using Serilog;
+@using System.Text.Json;
+@using NodaMoney;
+
+@using DiegoG.ToolSite.Client.Attributes;
+@using DiegoG.ToolSite.Client.Logging;
+@using DiegoG.ToolSite.Client.Services;
+@using DiegoG.ToolSite.Client.Types;
 @using DiegoG.ToolSite.Client
-@using DiegoG.ToolSite.Client.Shared
+@using DiegoG.ToolSite.Client.Components;
+
+@using DiegoG.ToolSite.Shared.Models;
+@using DiegoG.ToolSite.Shared.Models.Requests;
+@using DiegoG.ToolSite.Shared.Models.Responses;
+@using DiegoG.ToolSite.Shared.Services;
+@using DiegoG.ToolSite.Shared.Types;
+@using DiegoG.ToolSite.Shared;

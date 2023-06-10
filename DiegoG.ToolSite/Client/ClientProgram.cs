@@ -8,6 +8,7 @@ using DiegoG.ToolSite.Client.Workers;
 using DiegoG.ToolSite.Shared.JsonConverters;
 using DiegoG.ToolSite.Shared.Logging.Enrichers;
 using DiegoG.ToolSite.Shared.Models.Responses.Base;
+using Serilog.Events;
 
 namespace DiegoG.ToolSite.Client;
 public static class ClientProgram
@@ -38,10 +39,12 @@ public static class ClientProgram
 
         LogHelper.AddConfigurator(
             (c, f, la, ln, conf) =>
-                c.WriteTo.Sink(new BrowserSink(conf.Console, f), conf.Console)
+                c.WriteTo.Sink(new BrowserSink(conf.Console), conf.Console)
                  .WriteTo.Sink(new ServerSink(conf.File, f), conf.File)
                  .MinimumLevel.Is(conf.Minimum)
         );
+
+        LogHelper.Configurations["Default"] = new(LogEventLevel.Verbose, LogEventLevel.Debug, LogEventLevel.Information, LogEventLevel.Information, "");
 
         services.AddHostedService<BackgroundTaskSweeper>();
 
@@ -58,7 +61,7 @@ public static class ClientProgram
             };
 
             var sessions = sp.GetRequiredService<SessionManager>();
-            client.DefaultRequestHeaders.Authorization = sessions.AuthorizationHeader;
+            client.DefaultRequestHeaders.Authorization = sessions.CurrentUser?.Header;
 
             return client;
         });

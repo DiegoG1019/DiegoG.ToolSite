@@ -32,6 +32,12 @@ public static class LogHelper
         { "Default", new LogConfig(LogEventLevel.Information, LogEventLevel.Information, LogEventLevel.Information, LogEventLevel.Information, "logs") }
     };
 
+    public static LogConfig DefaultConfiguration
+    {
+        get => Configurations["Default"];
+        set => Configurations["Default"] = value;
+    }
+
     private static readonly object Sync = new();
     private static readonly HashSet<Func<ILogEventEnricher>> Enrichers = new();
     private static readonly HashSet<LoggerConfiguratorDelegate> Configurators = new();

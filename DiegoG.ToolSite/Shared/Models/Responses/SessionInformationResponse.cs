@@ -6,8 +6,10 @@ public class SessionInformationResponse : APIResponse
 {
     public SessionInformationResponse() : base(ResponseCodeEnum.SessionInformationResponse) { }
 
-    public required SessionId SessionId { get; set; }
-    public required string LoggedInAs { get; set; }
-    public required DateTimeOffset LoggedInSince { get; set; }
-    public bool IsAnonymous { get; set; }
+    public required SessionId SessionId { get; init; }
+    public required string LoggedInAs { get; init; }
+    public required DateTimeOffset LoggedInSince { get; init; }
+    public required bool IsAnonymous { get; init; }
+    public required UserSettings? Settings { get; init; }
+    public required UserPermission Permissions { get; init; }
 }

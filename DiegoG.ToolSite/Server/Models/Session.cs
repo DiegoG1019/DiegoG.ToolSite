@@ -16,7 +16,7 @@ public class Session
         => new()
         {
             Created = DateTime.Now,
-            Expiration = string.IsNullOrWhiteSpace(user.PasswordHash) ? ServerProgram.Settings.AnonymousSessionTimeout : ServerProgram.Settings.UserSessionTimeout,
+            Expiration = string.IsNullOrWhiteSpace(user.PasswordSha512) ? ServerProgram.Settings.AnonymousSessionTimeout : ServerProgram.Settings.UserSessionTimeout,
             Id = SessionId.NewId(),
             IPAddress = context.FindIPAddress(),
             LastUsed = DateTime.Now,

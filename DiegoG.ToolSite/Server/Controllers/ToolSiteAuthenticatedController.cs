@@ -14,6 +14,7 @@ public class ToolSiteAuthenticatedController : ToolSiteController
     public ToolSiteContext Db { get; init; }
 
     private Id<User>? _user;
+
     public Id<User> SiteUserId
     {
         get
@@ -28,7 +29,7 @@ public class ToolSiteAuthenticatedController : ToolSiteController
         }
     }
 
-    public async ValueTask<User> FetchSiteUser()
+    protected async ValueTask<User> FetchSiteUser()
         => await UserCache.GetOrAddAsync(
             SiteUserId,
             async k => await Db.Users.FindAsync(k) ?? throw new InvalidDataException($"The user Id '{k}' did not match any users")

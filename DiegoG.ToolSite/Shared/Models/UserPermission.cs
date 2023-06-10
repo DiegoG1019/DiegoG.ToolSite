@@ -1,4 +1,4 @@
-﻿namespace DiegoG.ToolSite.Server.Database.Models.Base;
+﻿namespace DiegoG.ToolSite.Shared.Models;
 
 [Flags]
 public enum UserPermission : long

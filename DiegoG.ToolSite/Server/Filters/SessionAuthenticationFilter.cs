@@ -58,6 +58,7 @@ public class SessionAuthenticationFilter : ToolSiteFilter, IAsyncAuthorizationFi
             log.Verbose("The request contains more than one authorization header, declining");
             context.Result = new ObjectResult(
                 new ErrorResponse("The request contains more than a single authorization header, which is not allowed when verifying headers")
+                { TraceId = httpContext.TraceIdentifier }
             )
             { StatusCode = (int)HttpStatusCode.Unauthorized };
             return;
@@ -75,34 +76,30 @@ public class SessionAuthenticationFilter : ToolSiteFilter, IAsyncAuthorizationFi
             if (user is null)
             {
                 log.Verbose("No user was found associated to session id {sessionid}", sid);
-                (user, session) = await NewUser(log, httpContext);
+                context.Result = new ObjectResult(
+                    new ErrorResponse("No session was found that matched the session id in the request")
+                    { TraceId = httpContext.TraceIdentifier }
+                )
+                { StatusCode = (int)HttpStatusCode.Unauthorized };
+                return;
             }
             else
-                log.Debug("Succesfully authenticated user {user} ({userid}) under session {sessionid}", user.DisplayName, user.Id, sid);
+                log.Debug("Succesfully authenticated user {user} ({userid}) under session {sessionid}", user.Username, user.Id, sid);
         }
         else
-            (user, session) = await NewUser(log, httpContext);
+        {
+            log.Verbose("No session id was found in the request");
+            context.Result = new ObjectResult(
+                new ErrorResponse("No valid session id was found in the request")
+                { TraceId = httpContext.TraceIdentifier }
+            )
+            { StatusCode = (int)HttpStatusCode.Unauthorized };
+            return;
+        }
 
         Debug.Assert(user is not null);
         Debug.Assert(session is not null);
         httpContext.Features.Set(user);
         httpContext.Features.Set(session);
-    }
-
-    private async Task<(User, Session)> NewUser(ILogger log, HttpContext httpContext)
-    {
-        log.Verbose("Creating new anonymous user");
-        var u = new User()
-        {
-            Username = AnonUserNameGenerator.GetName(),
-            Id = Id<User>.New()
-        };
-
-        await Users.AddUser(u);
-        var s = Session.New(u, httpContext);
-
-        log.Debug("Created new user {user} ({userid}); and created a new session {sessionid} for them", u.DisplayName, u.Id, s.Id);
-
-        return (u, s);
     }
 }

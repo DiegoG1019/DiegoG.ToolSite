@@ -1,6 +1,5 @@
 ﻿namespace DiegoG.ToolSite.Client.Pages;
 
-public partial class Ledger
+public partial class Ledger : ToolSiteComponent
 {
-
 }

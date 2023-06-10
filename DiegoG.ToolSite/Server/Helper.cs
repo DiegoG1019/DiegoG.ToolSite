@@ -20,46 +20,6 @@ public static class Helper
     public static string? GetFormattedConnectionString(this IConfiguration section, string key)
         => section.GetConnectionString(key)?.Replace("{AppData}", AppDataPath);
 
-    public static void AddError(this ref ErrorList errors, string error)
-        => (errors.Errors ??= new()).Add(error);
-
-    public static string GetHash512(ReadOnlySpan<char> data)
-    {
-        Span<byte> pswd = stackalloc byte[sizeof(char) * data.Length];
-        Encoding.UTF8.GetBytes(data, pswd);
-
-        Span<byte> hash = stackalloc byte[SHA512.HashSizeInBytes];
-        SHA512.TryHashData(pswd, hash, out _);
-
-        return Encoding.UTF8.GetString(hash);
-    }
-
-    public static string GetHash512(ReadOnlySpan<byte> data)
-    {
-        Span<byte> hash = stackalloc byte[SHA512.HashSizeInBytes];
-        SHA512.TryHashData(data, hash, out _);
-        return Encoding.UTF8.GetString(hash);
-    }
-
-    public static string GetHash256(ReadOnlySpan<byte> data)
-    {
-        Span<byte> hash = stackalloc byte[SHA256.HashSizeInBytes];
-        SHA256.TryHashData(data, hash, out _);
-
-        return Encoding.UTF8.GetString(hash);
-    }
-
-    public static string GetHash256(ReadOnlySpan<char> data)
-    {
-        Span<byte> pswd = stackalloc byte[sizeof(char) * data.Length];
-        Encoding.UTF8.GetBytes(data, pswd);
-
-        Span<byte> hash = stackalloc byte[SHA256.HashSizeInBytes];
-        SHA256.TryHashData(pswd, hash, out _);
-
-        return Encoding.UTF8.GetString(hash);
-    }
-
     public static string UpperFirstLetter(this string word)
         => char.IsUpper(word[0]) ? word : $"{char.ToUpper(word[0])}{word[1..]}";
 
