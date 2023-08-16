@@ -8,8 +8,26 @@ namespace DiegoG.ToolSite.Shared.Services;
 
 public readonly record struct LogProperty(string Name, object? Value, bool Destructure = false);
 
-public readonly record struct LogConfig(LogEventLevel Console, LogEventLevel File, LogEventLevel Database, LogEventLevel Syslog, string FileLocation)
+public readonly struct LogConfig
 {
+    public LogConfig(LogEventLevel console, LogEventLevel file, LogEventLevel database, LogEventLevel syslog, string fileLocation)
+    {
+        Console = console;
+        File = file;
+        Database = database;
+        Syslog = syslog;
+
+        ArgumentNullException.ThrowIfNull(fileLocation);
+        FileLocation = LogHelper.AppDataPath is string adp
+            ? fileLocation.Replace("{AppData}", adp)
+            : fileLocation;
+    }
+
+    public LogEventLevel Console { get; init; }
+    public LogEventLevel File { get; init; }
+    public LogEventLevel Database { get; init; }
+    public LogEventLevel Syslog { get; init; }
+    public string FileLocation { get; init; }
     public LogEventLevel Minimum => Min(Console, Min(File, Min(Database, Syslog)));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,8 +60,6 @@ public static class LogHelper
     private static readonly HashSet<Func<ILogEventEnricher>> Enrichers = new();
     private static readonly HashSet<LoggerConfiguratorDelegate> Configurators = new();
 
-    private static bool IsFrozen = false;
-
     private static Func<string?, string>? defaultFormat;
 
     [MemberNotNull(nameof(defaultFormat))]
@@ -53,19 +69,17 @@ public static class LogHelper
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            //ThrowIfFrozen();
             defaultFormat = value;
         }
     }
+
+    public static string? AppDataPath { get; set; }
 
     [ThreadStatic]
     private static ILogEventEnricher[]? EnricherBuffer;
 
     public static ILogger CreateLogger(string? logArea = null, string? loggerName = null, string? propertyFormat = null, params LogProperty[]? properties)
     {
-        lock (Sync)
-            IsFrozen = true;
-
         EnricherBuffer ??= new ILogEventEnricher[1];
         var c = new LoggerConfiguration();
 
@@ -97,7 +111,6 @@ public static class LogHelper
     {
         lock (Sync)
         {
-            //ThrowIfFrozen();
             Configurators.Add(configurator);
         }
     }
@@ -109,7 +122,6 @@ public static class LogHelper
     {
         lock (Sync)
         {
-            //ThrowIfFrozen();
             Enrichers.Add(enricher);
         }
     }

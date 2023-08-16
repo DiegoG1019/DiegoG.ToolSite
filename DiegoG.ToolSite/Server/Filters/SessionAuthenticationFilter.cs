@@ -28,6 +28,7 @@ public class AuthenticateSessionAttribute : ServiceFilterAttribute
     public AuthenticateSessionAttribute() : base(typeof(SessionAuthenticationFilter)) { }
 }
 
+[RegisterToolSiteService(ServiceLifetime.Scoped)]
 public class SessionAuthenticationFilter : ToolSiteFilter, IAsyncAuthorizationFilter
 {
     public const string SessionIdCookie = "session-id";
@@ -64,11 +65,25 @@ public class SessionAuthenticationFilter : ToolSiteFilter, IAsyncAuthorizationFi
             return;
         }
 
-        var x = httpContext.Request.Headers.Authorization;
-        if (SessionId.TryParse("", out var sid))
+        var auth = httpContext.Request.Headers.Authorization.SingleOrDefault();
+
+        if (string.IsNullOrWhiteSpace(auth))
+        {
+            log.Verbose("The authorization header is empty for this request, declining");
+            context.Result = new ObjectResult(
+                new ErrorResponse("No valid session id was found in the request")
+                { TraceId = httpContext.TraceIdentifier }
+            )
+            { StatusCode = (int)HttpStatusCode.Unauthorized };
+            return;
+        }
+
+        log.Verbose("Found prospective session id: {auth}", auth);
+
+        if (SessionIdHelper.TryParseAuthorizationHeader(auth, out SessionId sid))
             log.Verbose("Found session id in authorization header");
 
-        if (sid != default && SessionStore.TryGetSession(sid, out var session)) 
+        if (SessionStore.TryGetSession(sid, out var session))  
         {
             log.Verbose("Succesfully parsed session id {sessionid}", sid);
 
@@ -88,9 +103,9 @@ public class SessionAuthenticationFilter : ToolSiteFilter, IAsyncAuthorizationFi
         }
         else
         {
-            log.Verbose("No session id was found in the request");
+            log.Verbose("The sessionid could not be found in session records");
             context.Result = new ObjectResult(
-                new ErrorResponse("No valid session id was found in the request")
+                new ErrorResponse("No session was found that matched the session id in the request")
                 { TraceId = httpContext.TraceIdentifier }
             )
             { StatusCode = (int)HttpStatusCode.Unauthorized };
@@ -99,7 +114,7 @@ public class SessionAuthenticationFilter : ToolSiteFilter, IAsyncAuthorizationFi
 
         Debug.Assert(user is not null);
         Debug.Assert(session is not null);
-        httpContext.Features.Set(user);
+        httpContext.Features.Set(user.Id);
         httpContext.Features.Set(session);
     }
 }

@@ -16,18 +16,19 @@ namespace DiegoG.ToolSite.Server.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-public class AuthController : ToolSiteAuthenticatedController
+public class AuthController : ToolSiteController
 {
     private readonly UserManager Users;
+    private readonly SessionStore SessionStore;
 
     /// <summary>
     /// Creates a new instance of this controller
     /// </summary>
-    /// <param name="users"></param>
     /// <exception cref="ArgumentNullException"></exception>
-    public AuthController(UserManager users)
+    public AuthController(UserManager users, SessionStore sessionStore)
     {
         Users = users ?? throw new ArgumentNullException(nameof(users));
+        SessionStore = sessionStore;
     }
 
     /// <summary>
@@ -48,13 +49,15 @@ public class AuthController : ToolSiteAuthenticatedController
     [SwaggerResponse(401, "No valid session id was present in the Authorization header of the request", typeof(ErrorResponse))]
     public async Task<IActionResult> FetchSessionInfo()
     {
-        var user = await FetchSiteUser();
+        var user = await Users.FetchOrFindUser(HttpContext.Features.Get<Id<User>>());
+        var session = HttpContext.Features.Get<Session>()!;
+        Log.Debug("Fetched Session information");
         return Ok(new SessionInformationResponse()
         {
             LoggedInAs = user.Username,
-            LoggedInSince = Session.Created,
+            LoggedInSince = session.Created,
             IsAnonymous = user.PasswordSha512 is null,
-            SessionId = Session.Id,
+            SessionId = session.Id,
             Permissions = await Users.FetchRolePermissions(user.Id),
             Settings = ToResult(user.UserSettings)
         });
@@ -82,9 +85,10 @@ public class AuthController : ToolSiteAuthenticatedController
     [SwaggerResponse(401, "No valid session id was present in the Authorization header of the request", typeof(ErrorResponse))]
     public IActionResult Logout([FromServices] SessionStore store)
     {
+        var session = HttpContext.Features.Get<Session>()!;
         Log.Information("Logging out user");
-        Log.Debug("Destroying Session of id {sessionid}", Session.Id);
-        store.DestroySession(Session.Id);
+        Log.Debug("Destroying Session of id {sessionid}", session.Id);
+        store.DestroySession(session.Id);
         return Ok(NoResultsResponse.Instance);
     }
 
@@ -126,11 +130,12 @@ public class AuthController : ToolSiteAuthenticatedController
                 StatusCode = (int)HttpStatusCode.Forbidden
             };
         }
-
+        
         Debug.Assert(attemptingUser is not null);
 
         Log.Debug("Creating new session for user {user} ({id})", attemptingUser.Username, attemptingUser.Id);
         var session = Session.New(attemptingUser, HttpContext);
+        SessionStore.AddSession(session);
 
         Log.Information("Succesfully processed a login request for user {user} ({id})", attemptingUser.Username, attemptingUser.Id);
         return Ok(new SuccesfulLoginResponse()
@@ -165,27 +170,48 @@ public class AuthController : ToolSiteAuthenticatedController
             return BadRequest(new ErrorResponse(errors.AsEnumerable()) { TraceId = HttpContext.TraceIdentifier });
         }
 
-        Log.Verbose("Verifying the details of the new user request");
+        Log.Debug("Verifying the details of the new user request");
         if (string.IsNullOrWhiteSpace(request.PasswordSha256) || request.PasswordSha256.Length != HashHelpers.SHA256HexStringLength)
+        {
+            Log.Verbose("New User Request's password is invalid");
             errors.AddError($"The request's password property was not present, was null or empty, or did not have a length of {HashHelpers.SHA256HexStringLength}");
+        }
         
         if (RegexHelpers.VerifyHexStringRegex(RegexHelpers.HexStringVerificationOptions.Uppercase).IsMatch(request.PasswordSha256) is false)
             errors.AddError("The request's password property is not a purely uppercase hexadecimal string. Note that a trailing 0x is not allowed.");
 
         if (string.IsNullOrWhiteSpace(request.Username) || request.Username.Length > 30)
+        {
+            Log.Verbose("New User Request's username is too long");
             errors.AddError("The request's username property is not set, empty, or is longer than 30 characters");
+        }
         else if (RegexHelpers.VerifyAlphaNumericRegex().IsMatch(request.Username) is false)
+        {
+            Log.Verbose("New User Request's username is invalid: {username}", request.Username);
             errors.AddError("An username may only contain alphanumeric characters and a '_' character. That is, A-Z lowercase or uppercase, 0-9 and '_'");
+        }
         else if (await Users.CheckForUsernameConflict(request.Username, null))
+        {
+            Log.Verbose("New User Request's is already being used");
             errors.AddError($"The username '{request.Username}' is already being used");
+        }
 
         if (string.IsNullOrWhiteSpace(request.Email) || MailAddress.TryCreate(request.Email, out _) is false)
+        {
+            Log.Verbose("New User Request's email is invalid");
             errors.AddError("The request's email property is not set, or does not represent a valid email address");
+        }
         else if (await Users.CheckForEmailConflict(request.Email, null))
+        {
+            Log.Verbose("New User Request's email is already being used");
             errors.AddError($"The email address '{request.Email}' is already being used");
+        }
 
         if (errors.Errors?.Count is > 0)
+        {
+            Log.Debug("Rejected NewUser request due to validation errors");
             return BadRequest(new ErrorResponse(errors.AsEnumerable()) { TraceId = HttpContext.TraceIdentifier });
+        }
 
         var newuser = new User()
         {
@@ -200,8 +226,9 @@ public class AuthController : ToolSiteAuthenticatedController
         if (await Users.AddUser(newuser))
             Log.Information("Succesfully created new user {user} ({userid}) with an email of {email}", newuser.Username, newuser.Id, newuser.Email);
 
-        Log.Debug("Creating a new session for user {user} ({userid})");
+        Log.Debug("Creating a new session for user {user} ({userid})", newuser.Username, newuser.Id);
         var session = Session.New(newuser, HttpContext);
+        SessionStore.AddSession(session);
 
         Log.Information(
             "Succesfully processed a new user request for user {user} ({id}), and created session {sessionid} for them", 

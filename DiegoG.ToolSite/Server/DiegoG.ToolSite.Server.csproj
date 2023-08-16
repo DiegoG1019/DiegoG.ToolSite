@@ -11,9 +11,6 @@
 	<PackageReference Include="ConfigureAwait.Fody" Version="3.3.2">
 	  <PrivateAssets>all</PrivateAssets>
 	</PackageReference>
-	<PackageReference Include="DiegoG.REST.ASPNET" Version="1.1.1" />
-	<PackageReference Include="DiegoG.REST.Core" Version="1.0.1" />
-	<PackageReference Include="DiegoG.REST.Json" Version="1.0.1" />
 	<PackageReference Include="MailKit" Version="4.0.0" />
 	<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="7.0.5" />
 	<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="7.0.5" />
@@ -36,6 +33,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\DiegoG.REST\DiegoG.REST.ASPNET\DiegoG.REST.ASPNET.csproj" />
+    <ProjectReference Include="..\..\..\DiegoG.REST\DiegoG.REST.Json\DiegoG.REST.Json.csproj" />
+    <ProjectReference Include="..\..\..\DiegoG.REST\DiegoG.REST\DiegoG.REST.csproj" />
     <ProjectReference Include="..\Client\DiegoG.ToolSite.Client.csproj" />
     <ProjectReference Include="..\Shared\DiegoG.ToolSite.Shared.csproj" />
   </ItemGroup>

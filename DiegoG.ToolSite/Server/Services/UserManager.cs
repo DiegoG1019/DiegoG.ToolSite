@@ -17,6 +17,8 @@ namespace DiegoG.ToolSite.Server.Services;
 public class UserManager
 {
     private readonly static TimedCache<Id<User>, UserPermission> PermissionCache = new((k, v) => ServerProgram.Settings.PermissionCacheTimeout);
+    private readonly static TimedCache<Id<User>, User> UserCache = new((k, v) => TimeSpan.FromSeconds(30));
+
     private readonly ToolSiteContext Db;
 
     public UserManager(ToolSiteContext context)
@@ -41,6 +43,17 @@ public class UserManager
         void Add(ServiceItemDescription sid)
             => (services ??= new()).Add(sid);
     }
+
+    /// <summary>
+    /// Fetches an user from cache, or finds it in the database if not available
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="InvalidDataException"></exception>
+    public async ValueTask<User> FetchOrFindUser(Id<User> userId)
+        => await UserCache.GetOrAddAsync(
+            userId,
+            async k => await Db.Users.FindAsync(k) ?? throw new InvalidDataException($"The user Id '{k}' did not match any users")
+        );
 
     public Task<User?> FindUser(Id<User> userId)
     {

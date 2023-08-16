@@ -8,12 +8,10 @@ namespace DiegoG.ToolSite.Server.Controllers;
 
 public class ToolSiteAuthenticatedController : ToolSiteController
 {
-    private readonly static TimedCache<Id<User>, User> UserCache = new((k, v) => TimeSpan.FromSeconds(30));
+    private Id<User>? _user;
 
     [FromServices]
-    public ToolSiteContext Db { get; init; }
-
-    private Id<User>? _user;
+    protected UserManager UserManager { get; set; }
 
     public Id<User> SiteUserId
     {
@@ -28,12 +26,6 @@ public class ToolSiteAuthenticatedController : ToolSiteController
             return u;
         }
     }
-
-    protected async ValueTask<User> FetchSiteUser()
-        => await UserCache.GetOrAddAsync(
-            SiteUserId,
-            async k => await Db.Users.FindAsync(k) ?? throw new InvalidDataException($"The user Id '{k}' did not match any users")
-        );
 
     private Session? _session;
     public Session Session => _session ??= HttpContext.Features.Get<Session>() ?? throw new InvalidDataException("There is no session available for this page's request");

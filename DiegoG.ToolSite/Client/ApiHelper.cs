@@ -50,6 +50,13 @@ public static class ApiHelper
         where TAPIResponse : APIResponse
         => await ProcessAPIMessage<TAPIResponse>(await client.GetAsync(requestUri, ct), ct);
 
+    public static async Task<HttpApiResponse<TAPIResponse>> SendToAPIAsync<TAPIResponse>(this HttpClient client, HttpRequestMessage message, CancellationToken ct = default)
+        where TAPIResponse : APIResponse
+        => await ProcessAPIMessage<TAPIResponse>(await client.SendAsync(message, ct), ct);
+    
+    public static async Task<HttpApiResponse> SendToAPIAsync(this HttpClient client, HttpRequestMessage message, CancellationToken ct = default)
+        => await ProcessAPIMessage(await client.SendAsync(message, ct), ct);
+
     public static async Task<HttpApiResponse<TAPIResponse>> DeleteFromAPIAsync<TAPIResponse>(this HttpClient client, string? requestUri, CancellationToken ct = default)
         where TAPIResponse : APIResponse
         => await ProcessAPIMessage<TAPIResponse>(await client.DeleteAsync(requestUri, ct), ct);

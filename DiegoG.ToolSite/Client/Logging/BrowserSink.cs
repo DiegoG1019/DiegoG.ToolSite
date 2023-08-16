@@ -7,14 +7,13 @@ namespace DiegoG.ToolSite.Client.Logging;
 
 public class BrowserSink : ILogEventSink
 {
-    private class LogMessage
+    private class LogExceptionMessage
     {
-        public string Timestamp { get; set; }
-        public string Area { get; set; }
-        public string Logger { get; set; }
-        public Exception? Exception { get; set; }
+        public string Message { get; set; }
+        public string? StackTrace { get; set; }
     }
-        //(string Timestamp, string Area, string Logger, Exception? Exception)
+
+    //(string Timestamp, string Area, string Logger, Exception? Exception)
     private readonly LogEventLevel MinimumLevel;
 
     public BrowserSink(LogEventLevel minimumLevel)
@@ -26,7 +25,7 @@ public class BrowserSink : ILogEventSink
     private static object[]? LogParamBuffer;
 
     [ThreadStatic]
-    private static LogMessage? LogMessageBuffer;
+    private static LogExceptionMessage? LogExceptionMessageBuffer;
 
     public async void Emit(LogEvent logEvent)
     {
@@ -34,7 +33,6 @@ public class BrowserSink : ILogEventSink
 
         IJSRuntime js = ClientProgram.Services.GetRequiredService<IJSRuntime>();
         LogParamBuffer ??= new object[2];
-        var lmsg = LogMessageBuffer ??= new();
 
         var level = logEvent.Level switch
         {
@@ -47,14 +45,16 @@ public class BrowserSink : ILogEventSink
             _ => throw new ArgumentException($"Unknown LogEventLevel {logEvent.Level}", nameof(logEvent))
         };
 
-        LogParamBuffer[0] = $"{{{logEvent.Timestamp:yyyy-MM-dd hh:mm:ss}}} [{level}] > {logEvent.RenderMessage()}";
+        LogParamBuffer[0] = $"{{{logEvent.Timestamp:yyyy-MM-dd hh:mm:ss}}} ({logEvent.Properties["Area"]}) ({logEvent.Properties["LoggerName"]}) [{level}] > {logEvent.RenderMessage()}";
 
-        lmsg.Area = logEvent.Properties["Area"].ToString();
-        lmsg.Exception = logEvent.Exception;
-        lmsg.Timestamp = logEvent.Timestamp.ToString("yyyy-MM-dd hh:mm:ss.fffffffzzz.fff zzz", null);
-        lmsg.Logger = logEvent.Properties["LoggerName"].ToString();
-
-        LogParamBuffer[1] = lmsg;
+        LogParamBuffer[1] = null!;
+        if (logEvent.Exception is Exception e)
+        {
+            var lemb = LogExceptionMessageBuffer ??= new();
+            lemb.Message = e.Message;
+            lemb.StackTrace = e.StackTrace;
+            LogParamBuffer[1] = lemb;
+        }
         
         if (logEvent.Level > LogEventLevel.Warning)
             await js.InvokeVoidAsync("console.error", LogParamBuffer);

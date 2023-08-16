@@ -8,7 +8,7 @@ namespace DiegoG.ToolSite.Server;
 
 public static class Helper
 {
-    private readonly static string AppDataPath
+    public static string AppDataPath { get; } 
         = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ToolSite-Server");
 
     public static void CreateAppDataDirectory()

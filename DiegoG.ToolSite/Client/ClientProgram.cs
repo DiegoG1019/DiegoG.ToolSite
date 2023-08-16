@@ -9,14 +9,12 @@ using DiegoG.ToolSite.Shared.JsonConverters;
 using DiegoG.ToolSite.Shared.Logging.Enrichers;
 using DiegoG.ToolSite.Shared.Models.Responses.Base;
 using Serilog.Events;
+using DiegoG.ToolSite.Shared;
 
 namespace DiegoG.ToolSite.Client;
 public static class ClientProgram
 {
-    public static JsonSerializerOptions JsonOptions { get; } = new()
-    {
-        WriteIndented = true,
-    };
+    public static JsonSerializerOptions JsonOptions { get; } = SharedStatic.JsonOptions;
 
     public static IServiceProvider Services { get; }
     public static WebAssemblyHost Host { get; }
@@ -24,8 +22,6 @@ public static class ClientProgram
 
     static ClientProgram()
     {
-        JsonOptions.Converters.Add(SessionIdJsonConverter.Instance);
-
         var builder = WebAssemblyHostBuilder.CreateDefault(Environment.GetCommandLineArgs());
         builder.RootComponents.Add<App>("#app");
         builder.RootComponents.Add<HeadOutlet>("head::after");
@@ -61,7 +57,8 @@ public static class ClientProgram
             };
 
             var sessions = sp.GetRequiredService<SessionManager>();
-            client.DefaultRequestHeaders.Authorization = sessions.CurrentUser?.Header;
+            if (sessions.CurrentUser?.Session is SessionId sid)
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {sid}");
 
             return client;
         });

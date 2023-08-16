@@ -15,6 +15,7 @@ using DiegoG.ToolSite.Shared.Models.Responses.Base;
 using DiegoG.ToolSite.Shared.Models.Responses;
 using DiegoG.ToolSite.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
+using DiegoG.ToolSite.Shared.Models;
 
 namespace ToolSite.Tests;
 
@@ -31,20 +32,22 @@ public class SessionManagerTest
 
         sc.AddScoped(sp =>
         {
-            var client = new HttpClient(new HttpCachingHandler())
+            var client = new HttpClient()
             {
-                BaseAddress = new Uri("http://localhost:5099")
+                BaseAddress = new Uri("https://localhost:7273")
             };
 
             var sessions = sp.GetRequiredService<SessionManager>();
-            client.DefaultRequestHeaders.Authorization = sessions.CurrentUser?.Header;
+
+            if (sessions.CurrentUser?.Session is SessionId sid)
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {sid}");
 
             return client;
         });
 
         sc.AddScoped<IStorageManager, StubStorageManager>();
 
-        sc.AddSingleton<IRESTObjectSerializer<ResponseCode>>(new JsonRESTSerializer<ResponseCode>());
+        sc.AddSingleton<IRESTObjectSerializer<ResponseCode>>(new JsonRESTSerializer<ResponseCode>(SharedStatic.JsonOptions));
         sc.AddSingleton<RESTObjectTypeTable<ResponseCode>>(new APIResponseTypeTable());
 
         sc.AddSingleton(typeof(SessionManager));
@@ -54,16 +57,26 @@ public class SessionManagerTest
     }
 
     [TestMethod]
-    public async Task LogoutTest()
-    {
-        await Manager.Logout();
-    }
-
-    [TestMethod]
     public async Task NewUserTest()
     {
-        var username = $"TestUser-{Guid.NewGuid()}";
-        await Manager.CreateNewUserAndLogin(new NewUserRequest(username, $"{Guid.NewGuid()}@gmail.com", HashHelpers.GetSHA256("123456789")));
-        Debug.Assert(Manager.CurrentUser?.Username == username);
+        const string charpool = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        StringBuilder sb = new StringBuilder(30).Append("TestUser_");
+        for (int i = 0; i < 30 - 9; i++)
+            sb.Append(charpool[Random.Shared.Next(0, charpool.Length - 1)]);
+
+        var username = sb.ToString();
+
+        var (s, e) = await Manager.CreateNewUserAndLogin(new NewUserRequest(username, $"{Guid.NewGuid()}@gmail.com", HashHelpers.GetSHA256("123456789")));
+
+        if (s is false)
+        {
+            foreach (var error in e!)
+                Console.WriteLine($"- {error}");
+            Debug.Fail("The request completed with errors");
+        }
+        Debug.Assert(Manager.CurrentUser?.Username == username, "Logged in User's Username is different from what was expected");
+
+        Debug.Assert(await Manager.Logout(), "The user was unexpectedly not logged in");
     }
 }

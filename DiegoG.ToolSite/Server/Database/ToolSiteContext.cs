@@ -7,6 +7,8 @@ namespace DiegoG.ToolSite.Server.Database;
 
 public class ToolSiteContext : DbContext
 {
+    private static bool _init = false;
+
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<MailConfirmationRequest> MailConfirmationRequests => Set<MailConfirmationRequest>();
@@ -18,29 +20,40 @@ public class ToolSiteContext : DbContext
 
     public ToolSiteContext(DbContextOptions<ToolSiteContext> options) : base(options)
     {
-        if (Database.IsSqlite())
+        if(_init is false)
         {
-            Database.EnsureCreated();
-        }
-        else if (Database.IsSqlServer())
-        {
-#if DEBUG
-            try
+            lock (typeof(ToolSiteContext))
             {
-                Database.Migrate();
+                if (_init is false)
+                {
+                    if (Database.IsSqlite())
+                    {
+                        Database.EnsureCreated();
+                    }
+                    else if (Database.IsSqlServer())
+                    {
+            #if DEBUG
+                        try
+                        {
+                            Database.Migrate();
+                        }
+                        catch (Exception e)
+                        {
+                            Log.Error(e, "An error ocurred while attempting to migrate the database -- due to being in Debug mode; the database will be deleted and migration reattempted");
+                            Database.EnsureDeleted();
+                            Database.Migrate();
+                        }
+            #else
+                        Database.Migrate();
+            #endif
+                    }
+                    else
+                        throw new InvalidOperationException("The backing database is neither SqlServer or Sqlite, this context is not configured to handle any other databases");
+
+                    _init = true;
+                }
             }
-            catch (Exception e)
-            {
-                Log.Error(e, "An error ocurred while attempting to migrate the database -- due to being in Debug mode; the database will be deleted and migration reattempted");
-                Database.EnsureDeleted();
-                Database.Migrate();
-            }
-#else
-            Database.Migrate();
-#endif
         }
-        else
-            throw new InvalidOperationException("The backing database is neither SqlServer or Sqlite, this context is not configured to handle any other databases");
 
         ChangeTracker.StateChanged += ChangeTracker_StateChanged;
     }

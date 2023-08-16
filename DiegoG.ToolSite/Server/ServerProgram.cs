@@ -19,6 +19,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Xml.XPath;
+using DiegoG.ToolSite.Shared;
 
 namespace DiegoG.ToolSite.Server;
 
@@ -30,7 +31,7 @@ public static class ServerProgram
     public static IServiceProvider Services { get; }
     public static WebApplication App { get; }
     public static ServerInfo Server { get; }
-    public static JsonSerializerOptions JsonOptions { get; }
+    public static JsonSerializerOptions JsonOptions => SharedStatic.JsonOptions;
 
     public static AppSettings Settings
     {
@@ -62,13 +63,14 @@ public static class ServerProgram
             LogHelper.Configurations[k] = v;
         }
 
-        LogHelper.DefaultFormat = p => $"[{{Timestamp:yyyy-MM-dd hh:mm:ss.fffffffzzz.fff zzz}} [{{Level:u3}}] (Area: {{Area}}) (Logger: {{LoggerName}}){(string.IsNullOrWhiteSpace(p) ? $" {p}" : "")}]{{NewLine}} > {{Message:lj}}{{NewLine}}{{Exception}}";
+        LogHelper.DefaultFormat = p => $"[{{Timestamp:yyyy-MM-dd hh:mm:ss.fffffffzzz.fff zzz}} [{{Level:u3}}] (Area: {{Area}}) (Logger: {{LoggerName}}){(string.IsNullOrWhiteSpace(p) ? "" : $" {p}")}]{{NewLine}} > {{Message:lj}}{{NewLine}}{{Exception}}";
 
         var exceptionDump = Configuration.GetValue<string>("LogSettings:ExceptionDump");
         if (string.IsNullOrWhiteSpace(exceptionDump))
             throw new ArgumentException("ExceptionDump must not be null or only whitespace");
         Directory.CreateDirectory(exceptionDump);
 
+        LogHelper.AppDataPath = Helper.AppDataPath;
         LogHelper.AddEnricher(new ExceptionDumper(exceptionDump));
         LogHelper.AddConfigurator(
             (c, f, la, ln, conf) =>
@@ -100,13 +102,6 @@ public static class ServerProgram
         log.Debug("Configuring default Json Options");
         log.Verbose("Configuring HTTP Json Options");
         services.ConfigureHttpJsonOptions(x => x.SerializerOptions.Converters.Add(SessionIdJsonConverter.Instance));
-
-        log.Verbose("Configuring global JsonOptions");
-        JsonOptions = new JsonSerializerOptions()
-        {
-            WriteIndented = true
-        };
-        JsonOptions.Converters.Add(SessionIdJsonConverter.Instance);
 
         log.Debug("Configuring Swagger services");
         log.Verbose("Adding Endpoints API Explorer");
@@ -237,7 +232,8 @@ public static class ServerProgram
         services.AddRazorPages();
 
         log.Debug("Adding Controller Services");
-        services.AddControllers();
+        services.AddControllers()
+            .AddJsonOptions(json => json.JsonSerializerOptions.Converters.Add(SessionIdJsonConverter.Instance));
 
         log.Debug("Adding REST Object Serializers");
         services.AddRESTObjectSerializer<ResponseCode>(new JsonRESTSerializer<ResponseCode>(JsonOptions));
@@ -260,6 +256,9 @@ public static class ServerProgram
             _ => throw new InvalidDataException($"Unknown database kind {dbk}")
         });
         log.Information("Registered EntityFramework for Context {context} powered by {dbk}", nameof(ToolSiteContext), dbk);
+#if DEBUG
+        log.Verbose("Database Connection String for Context {context}: {connstr}", nameof(ToolSiteContext), conf.GetFormattedConnectionString("ToolSite"));
+#endif
 
         //services.AddScoped<IStorageProvider>(x => new FileSystemStorageProvider("Dynamic"));
 
@@ -295,46 +294,47 @@ public static class ServerProgram
             (c, f, la, ln, conf) => c.WriteTo.Sink(new DatabaseSink(20, conf.Database, () => Services))
         );
 
+        Log.Logger = LogHelper.CreateLogger("System", "Program");
+
         log.Debug("Registering ExceptionLogger middleware");
         App.UseMiddleware<ExceptionLogger>();
+
+        log.Debug("Registering DEBUG REST Exception Handler middleware");
+        App.UseRESTExceptionHandler<ResponseCode>((r, e, s, c) =>
+        {
+            Log.Fatal(e, "An unexpected exception was thrown");
+
+#if DEBUG
+            return Task.FromResult(
+                new ExceptionRESTResponse<ResponseCode>(
+                    new ErrorResponse(e?.Message ?? "No message", e?.StackTrace ?? "No stack trace")
+                    {
+                        TraceId = c.TraceIdentifier
+                    },
+                    HttpStatusCode.InternalServerError
+                )
+            );
+#else
+            return Task.FromResult(
+                new ExceptionRESTResponse<ResponseCode>(
+                    new ErrorResponse("An internal error ocurred. Please report this to the server administrators.")
+                    {
+                        TraceId = c.TraceIdentifier
+                    },
+                    HttpStatusCode.InternalServerError
+                )
+            );
+#endif
+        });
 
         // Configure the HTTP request pipeline.
         if (App.Environment.IsDevelopment())
         {
-            log.Debug("Registering DEBUG REST Exception Handler middleware");
-            App.UseRESTExceptionHandler<ResponseCode>((r, e, s, c)
-                => Task.FromResult(
-                    new ExceptionRESTResponse<ResponseCode>(
-                        e is not null
-                        ? new ErrorResponse(e.Message, e.StackTrace!)
-                        {
-                            TraceId = c.TraceIdentifier
-                        }
-                        : new ErrorResponse()
-                        {
-                            TraceId = c.TraceIdentifier
-                        },
-                        HttpStatusCode.InternalServerError
-                    )
-                ));
-
             log.Debug("Configuring debug settings");
             App.UseWebAssemblyDebugging();
         }
         else
         {
-            log.Debug("Registering REST Exception Handler middleware");
-            App.UseRESTExceptionHandler<ResponseCode>((r, e, s, c) 
-                => Task.FromResult(
-                    new ExceptionRESTResponse<ResponseCode>(
-                        new ErrorResponse()
-                        {
-                            TraceId = c.TraceIdentifier
-                        },
-                        HttpStatusCode.InternalServerError
-                    )
-                ));
-
             log.Debug("Configuring release settings");
             // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
             App.UseHsts();
@@ -357,8 +357,8 @@ public static class ServerProgram
             c.RoutePrefix = "api/swagger";
         });
 
-        log.Debug("Configuring HTTPS redirection");
-        App.UseHttpsRedirection();
+        //log.Debug("Configuring HTTPS redirection");
+        //App.UseHttpsRedirection();
 
         log.Debug("Configuring static files");
         App.UseStaticFiles();

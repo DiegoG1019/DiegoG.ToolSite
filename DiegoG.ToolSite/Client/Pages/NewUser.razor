@@ -2,6 +2,7 @@
 @inherits ToolSiteComponent
 @using System.Diagnostics;
 @inject SessionManager Session
+@inject ActionScheduler Actions
 
 <h1>Create a New User</h1>
 <div>
@@ -84,6 +85,12 @@
     public string? Email { get; set; }
     public string? EmailVerification { get; set; }
 
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+            Actions.Launch();
+    }
+
     public async Task SubmitLogin()
     {
         try
@@ -134,7 +141,11 @@
             if (Errors.HasErrors)
             {
                 Log.Debug("Activating Error Box");
-                ErrorBoxClasses.Enable(0);
+                Actions.Schedule(async () =>
+                {
+                    await Task.Delay(200);
+                    ErrorBoxClasses.Enable(0);
+                });
                 return;
             }
 

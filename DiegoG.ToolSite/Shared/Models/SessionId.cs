@@ -8,6 +8,7 @@ namespace DiegoG.ToolSite.Shared.Models;
 
 public readonly struct SessionId : IEquatable<SessionId>, IParsable<SessionId>
 {
+    private readonly record struct SessionIdHalf(long A, long B);
     private readonly long A;
     private readonly long B;
     private readonly long C;
@@ -33,6 +34,17 @@ public readonly struct SessionId : IEquatable<SessionId>, IParsable<SessionId>
         if (Vector256.IsHardwareAccelerated)
         {
             return Vector256.LoadUnsafe(ref Unsafe.As<SessionId, byte>(ref Unsafe.AsRef(in left))) == Vector256.LoadUnsafe(ref Unsafe.As<SessionId, byte>(ref Unsafe.AsRef(in right)));
+        }
+        else if (Vector128.IsHardwareAccelerated)
+        {
+            return 
+                Vector128.LoadUnsafe(ref Unsafe.As<SessionIdHalf, byte>(ref Unsafe.AsRef<SessionIdHalf>(&left))) 
+                == Vector128.LoadUnsafe(ref Unsafe.As<SessionIdHalf, byte>(ref Unsafe.AsRef<SessionIdHalf>(&right)))
+
+                &&
+
+                Vector128.LoadUnsafe(ref Unsafe.As<SessionIdHalf, byte>(ref Unsafe.AsRef<SessionIdHalf>(Unsafe.Add<SessionIdHalf>(&left, 1))))
+                == Vector128.LoadUnsafe(ref Unsafe.As<SessionIdHalf, byte>(ref Unsafe.AsRef<SessionIdHalf>(Unsafe.Add<SessionIdHalf>(&right, 1))));
         }
 
         ref long rA = ref Unsafe.AsRef(in left.A);

@@ -82,14 +82,18 @@ public class DatabaseSink : ILogEventSink
     private async Task BulkWriteToDb()
     {
         Debug.Assert(Buffer is not null);
-        using (var scope = (Services() ?? throw new NullReferenceException("Service function returned null")).CreateScope())
-        using (var context = scope.ServiceProvider.GetRequiredService<ToolSiteContext>())
+        try
         {
-            while (Buffer.TryDequeue(out var le))
-                WriteToDb(le, context);
+            using (var scope = (Services() ?? throw new NullReferenceException("Service function returned null")).CreateScope())
+            using (var context = scope.ServiceProvider.GetRequiredService<ToolSiteContext>())
+            {
+                while (Buffer.TryDequeue(out var le))
+                    WriteToDb(le, context);
 
-            await context.SaveChangesAsync();
+                await context.SaveChangesAsync();
+            }
         }
+        catch (ObjectDisposedException) { }
     }
 
     private class PropertyBuffer

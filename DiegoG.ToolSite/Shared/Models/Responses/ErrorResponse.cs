@@ -1,9 +1,11 @@
-﻿using DiegoG.ToolSite.Shared.Models.Responses.Base;
+﻿using System.Text.Json.Serialization;
+using DiegoG.ToolSite.Shared.Models.Responses.Base;
 
 namespace DiegoG.ToolSite.Shared.Models.Responses;
 
 public class ErrorResponse : APIResponse
 {
+    [JsonConstructor]
     public ErrorResponse(IEnumerable<string> errors) : base(ResponseCodeEnum.Error)
     {
         Errors = errors ?? Array.Empty<string>();

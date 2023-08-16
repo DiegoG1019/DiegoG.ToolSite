@@ -8,7 +8,7 @@
 
     <main>
         <div class="top-row px-4">
-            @if (Session.CurrentUser is UserSessionInformation cu)
+            @if (User is UserSessionInformation cu && cu.Session != default)
             {
                 <a class="user-data user-data-name" href="/UserInfo">@cu.Username</a>
             }
@@ -23,3 +23,13 @@
         </article>
     </main>
 </div>
+
+@code{
+    UserSessionInformation? User;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        User = await Session.FetchCurrentUser();
+        await base.OnAfterRenderAsync(firstRender);
+    }
+}

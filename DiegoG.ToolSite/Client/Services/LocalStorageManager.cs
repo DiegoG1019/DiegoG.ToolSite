@@ -7,9 +7,6 @@ namespace DiegoG.ToolSite.Client.Services;
 public class LocalStorageManager : IStorageManager
 {
     private readonly IJSRuntime Js;
-    private IJSObjectReference? _module;
-    private async ValueTask<IJSObjectReference> GetStorage()
-        => _module ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/LocalStorage.js;");
 
     public LocalStorageManager(IJSRuntime js)
     {
@@ -33,7 +30,7 @@ public class LocalStorageManager : IStorageManager
         ParamBuffer ??= new object[2];
         ParamBuffer[0] = key;
         ParamBuffer[1] = Type.Missing;
-        return await (await GetStorage()).InvokeAsync<string?>("get");
+        return await Js.InvokeAsync<string?>("window.localStorage.getItem", ParamBuffer);
     }
 
     public ValueTask Set<T>(string key, T value)
@@ -44,17 +41,17 @@ public class LocalStorageManager : IStorageManager
         ParamBuffer ??= new object[2];
         ParamBuffer[0] = key;
         ParamBuffer[1] = value;
-        await (await GetStorage()).InvokeVoidAsync("set", ParamBuffer);
+        await Js.InvokeVoidAsync("window.localStorage.setItem", ParamBuffer);
     }
 
     public async ValueTask Clear()
-        => await (await GetStorage()).InvokeVoidAsync("clear");
+        => await Js.InvokeVoidAsync("window.localStorage.clear");
 
     public async ValueTask Remove(string key)
     {
         ParamBuffer ??= new object[2];
         ParamBuffer[0] = key;
         ParamBuffer[1] = Type.Missing;
-        await (await GetStorage()).InvokeVoidAsync("remove", ParamBuffer);
+        await Js.InvokeVoidAsync("window.localStorage.removeItem", ParamBuffer);
     }
 }

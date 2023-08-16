@@ -15,4 +15,6 @@ global using DiegoG.ToolSite.Shared.Models.Requests;
 global using DiegoG.ToolSite.Shared.Models.Responses;
 global using DiegoG.ToolSite.Shared.Services;
 
+global using DiegoG.ToolSite.Client.Extensions;
+
 global using ILogger = Serilog.ILogger;
